@@ -1,12 +1,49 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { RewriteResponse } from "../types";
+import { RewriteResponse, TextStats } from "../types";
 
 export class HumanizerService {
   private ai: GoogleGenAI;
 
   constructor() {
     this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  }
+
+  async auditText(text: string): Promise<TextStats> {
+    const systemPrompt = `
+      You are a linguistic analysis engine. Analyze the provided text and estimate its AI-generated probability.
+      Calculate:
+      1. PERPLEXITY: Measure of text randomness (0-100).
+      2. BURSTINESS: Variation in sentence length and structure (0-100).
+      3. AI LIKELIHOOD: Overall probability that the text was AI-generated (0-100).
+      
+      Output strictly as JSON.
+    `;
+
+    try {
+      const response = await this.ai.models.generateContent({
+        model: "gemini-3-flash-preview", // Use flash for faster real-time auditing
+        contents: `Analyze this text:\n\n${text}`,
+        config: {
+          systemInstruction: systemPrompt,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              perplexity: { type: Type.NUMBER },
+              burstiness: { type: Type.NUMBER },
+              aiLikelihood: { type: Type.NUMBER }
+            },
+            required: ["perplexity", "burstiness", "aiLikelihood"]
+          }
+        }
+      });
+
+      return JSON.parse(response.text.trim()) as TextStats;
+    } catch (error) {
+      console.error("Audit Error:", error);
+      throw error;
+    }
   }
 
   async humanizeText(text: string, profession: string): Promise<RewriteResponse> {
@@ -32,7 +69,7 @@ export class HumanizerService {
         config: {
           systemInstruction: systemPrompt,
           responseMimeType: "application/json",
-          temperature: 0.9, // Higher temperature for increased perplexity
+          temperature: 0.9,
           responseSchema: {
             type: Type.OBJECT,
             properties: {

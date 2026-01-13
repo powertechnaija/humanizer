@@ -1,6 +1,6 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { Profession, RewriteResponse } from './types';
+import React, { useState, useEffect, useRef } from 'react';
+import { Profession, RewriteResponse, TextStats } from './types';
 import { PROFESSION_DETAILS } from './constants';
 import { humanizerService } from './services/geminiService';
 import { StatCard } from './components/StatCard';
@@ -10,9 +10,45 @@ const App: React.FC = () => {
   const [selectedProfession, setSelectedProfession] = useState<Profession>(Profession.ENGINEER);
   const [customProfession, setCustomProfession] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isAuditing, setIsAuditing] = useState(false);
+  const [inputStats, setInputStats] = useState<TextStats | null>(null);
   const [result, setResult] = useState<RewriteResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  
+  // Use any to avoid conflict between NodeJS.Timeout and window.setTimeout number
+  const auditTimeoutRef = useRef<any>(null);
+
+  // Real-time audit logic with robust cleanup
+  useEffect(() => {
+    if (auditTimeoutRef.current) {
+      clearTimeout(auditTimeoutRef.current);
+    }
+
+    if (inputText.trim().length < 50) {
+      setInputStats(null);
+      setIsAuditing(false);
+      return;
+    }
+
+    setIsAuditing(true);
+    auditTimeoutRef.current = setTimeout(async () => {
+      try {
+        const stats = await humanizerService.auditText(inputText);
+        setInputStats(stats);
+      } catch (err) {
+        console.error("Real-time audit failed", err);
+      } finally {
+        setIsAuditing(false);
+      }
+    }, 1000);
+
+    return () => {
+      if (auditTimeoutRef.current) {
+        clearTimeout(auditTimeoutRef.current);
+      }
+    };
+  }, [inputText]);
 
   const handleHumanize = async () => {
     if (!inputText.trim()) {
@@ -106,7 +142,7 @@ const App: React.FC = () => {
                 </div>
 
                 {selectedProfession === Profession.OTHER && (
-                  <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="space-y-3 animate-fade-in">
                     <label className="block text-sm font-medium text-slate-400 uppercase tracking-wider">Specify Profession</label>
                     <input
                       type="text"
@@ -126,16 +162,41 @@ const App: React.FC = () => {
             </section>
 
             <section className="glass rounded-3xl p-6 shadow-2xl relative">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
-                <i className="fa-solid fa-align-left text-blue-400"></i>
-                Source Text
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2 text-white">
+                  <i className="fa-solid fa-align-left text-blue-400"></i>
+                  Source Text
+                </h2>
+                {isAuditing && (
+                   <span className="text-xs text-blue-400 animate-pulse flex items-center gap-2">
+                     <i className="fa-solid fa-magnifying-glass-chart"></i>
+                     Auditing...
+                   </span>
+                )}
+              </div>
               <textarea
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Paste AI-generated text here (Minimum 50 characters)..."
                 className="w-full h-80 bg-slate-900/50 border border-slate-700 rounded-2xl p-4 text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none mono-font text-sm leading-relaxed"
               />
+              
+              {/* Real-time Input Score Display */}
+              {inputStats && (
+                <div className="mt-4 p-4 bg-slate-800/40 border border-slate-700 rounded-2xl animate-fade-in">
+                   <div className="flex items-center justify-between mb-3">
+                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Pre-Transformation Audit</h3>
+                     <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${inputStats.aiLikelihood > 70 ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                        {inputStats.aiLikelihood}% AI Probability
+                     </span>
+                   </div>
+                   <div className="grid grid-cols-2 gap-4">
+                      <StatCard label="Perplexity" value={inputStats.perplexity} maxValue={100} color="bg-blue-500" />
+                      <StatCard label="Burstiness" value={inputStats.burstiness} maxValue={100} color="bg-blue-500" />
+                   </div>
+                </div>
+              )}
+
               <div className="mt-4 flex justify-between items-center">
                 <span className="text-xs text-slate-500 font-mono">{inputText.length} characters</span>
                 <button
@@ -202,14 +263,14 @@ const App: React.FC = () => {
                   </div>
                 )}
                 {result && (
-                  <div className="prose prose-invert max-w-none text-slate-300 leading-relaxed text-lg whitespace-pre-wrap">
+                  <div className="prose prose-invert max-w-none text-slate-300 leading-relaxed text-lg whitespace-pre-wrap animate-fade-in">
                     {result.humanizedText}
                   </div>
                 )}
               </div>
 
               {result && (
-                <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
                   <div className="space-y-4">
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                       <i className="fa-solid fa-chart-line text-blue-400"></i>
@@ -255,11 +316,11 @@ const App: React.FC = () => {
         </main>
 
         <footer className="mt-16 pt-8 border-t border-slate-800 text-center text-slate-500 text-sm">
-          <p>© 2024 HumanFlow Linguistic Intelligence Platform. Built with Google Gemini 3 Pro.</p>
+          <p>© 2024 HumanFlow Linguistic Intelligence Platform. Powered by Gemini Pro.</p>
           <div className="mt-4 flex justify-center gap-6">
             <span className="flex items-center gap-1"><i className="fa-solid fa-shield-halved text-xs"></i> 100% Secure</span>
             <span className="flex items-center gap-1"><i className="fa-solid fa-microchip text-xs"></i> ML Optimized</span>
-            <span className="flex items-center gap-1"><i className="fa-solid fa-cloud-arrow-up text-xs"></i> Low Latency</span>
+            <span className="flex items-center gap-1"><i className="fa-solid fa-cloud-arrow-up text-xs"></i> Cloud Native</span>
           </div>
         </footer>
       </div>
