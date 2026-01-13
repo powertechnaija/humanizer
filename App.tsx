@@ -16,6 +16,8 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
   
+  const MAX_CHARS = 15000;
+  
   // Use any to avoid conflict between NodeJS.Timeout and window.setTimeout number
   const auditTimeoutRef = useRef<any>(null);
 
@@ -177,7 +179,8 @@ const App: React.FC = () => {
               <textarea
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder="Paste AI-generated text here (Minimum 50 characters)..."
+                maxLength={MAX_CHARS}
+                placeholder={`Paste AI-generated text here (Up to ${MAX_CHARS.toLocaleString()} chars)...`}
                 className="w-full h-80 bg-slate-900/50 border border-slate-700 rounded-2xl p-4 text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none mono-font text-sm leading-relaxed"
               />
               
@@ -198,7 +201,9 @@ const App: React.FC = () => {
               )}
 
               <div className="mt-4 flex justify-between items-center">
-                <span className="text-xs text-slate-500 font-mono">{inputText.length} characters</span>
+                <span className={`text-xs font-mono transition-colors ${inputText.length > MAX_CHARS * 0.9 ? 'text-amber-400' : 'text-slate-500'}`}>
+                  {inputText.length.toLocaleString()} / {MAX_CHARS.toLocaleString()} characters
+                </span>
                 <button
                   onClick={handleHumanize}
                   disabled={isProcessing || !inputText.trim()}

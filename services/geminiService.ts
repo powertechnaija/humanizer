@@ -11,19 +11,22 @@ export class HumanizerService {
 
   async auditText(text: string): Promise<TextStats> {
     const systemPrompt = `
-      You are a linguistic analysis engine. Analyze the provided text and estimate its AI-generated probability.
-      Calculate:
-      1. PERPLEXITY: Measure of text randomness (0-100).
-      2. BURSTINESS: Variation in sentence length and structure (0-100).
-      3. AI LIKELIHOOD: Overall probability that the text was AI-generated (0-100).
+      You are a specialized Linguistic Forensic Engine. Your task is to analyze the provided text for "AI Signatures."
+      
+      ANALYSIS CRITERIA:
+      1. PERPLEXITY (0-100): Randomness and complexity of word choice. AI tends toward high-probability token chains.
+      2. BURSTINESS (0-100): Variation in sentence structure and length. AI tends toward uniform rhythmic patterns.
+      3. AI LIKELIHOOD (0-100): Probability of machine origin.
+      
+      IMPORTANT: If the text is long, analyze patterns across the entire document. Look for "semantic drifting" or "robotic consistency" which are markers of LLM output in large blocks.
       
       Output strictly as JSON.
     `;
 
     try {
       const response = await this.ai.models.generateContent({
-        model: "gemini-3-flash-preview", // Use flash for faster real-time auditing
-        contents: `Analyze this text:\n\n${text}`,
+        model: "gemini-3-flash-preview", 
+        contents: `Analyze this text for AI patterns:\n\n${text}`,
         config: {
           systemInstruction: systemPrompt,
           responseMimeType: "application/json",
@@ -48,28 +51,31 @@ export class HumanizerService {
 
   async humanizeText(text: string, profession: string): Promise<RewriteResponse> {
     const systemPrompt = `
-      You are a world-class Machine Learning Linguist and Expert Editor with 15 years of experience in adversarial LLM training. 
-      Your mission is to rewrite the provided AI-generated text so it becomes indistinguishable from a human professional in the field of: ${profession}.
+      You are a world-class Machine Learning Linguist and Adversarial Editor. 
+      Target Persona: ${profession}.
+      
+      CORE MISSION: 
+      Transform the provided text into a document that bypasses all state-of-the-art AI detectors (GPTZero, Originality.ai, etc.) while sounding like a seasoned ${profession}.
+      
+      STRATEGIC DIRECTIVES FOR LARGE DOCUMENTS:
+      1. STYLE COHERENCE: Maintain the professional voice consistently across the entire text. Do not let the quality drift in longer sections.
+      2. PERPLEXITY MAXIMIZATION: Replace common "AI-isms" with industry-specific vernacular, technical shorthand, and idiomatic expressions natural to a ${profession}.
+      3. RADICAL BURSTINESS: Force a non-linear rhythm. Use fragments, rhetorical interjections, and varying clause complexity. 
+      4. ADVERSARIAL FLOW: Intentionally break the "predictive perfection" of LLMs. Introduce nuanced human reasoning, personal perspective (where appropriate), and stylistic "flavor" that machines avoid.
+      5. TRANSITION OVERHAUL: Replace "Furthermore," "Moreover," and "In conclusion" with organic transitions (e.g., "This leads us to...", "Looking at the data...", "The reality is...").
 
-      HUMANIZATION RULES (Machine Learning Perspective):
-      1. PERPLEXITY INJECTION: Avoid the most predictable next-token choices. Use varied vocabulary that a professional in ${profession} would naturally use, including industry-specific idioms or shorthand.
-      2. BURSTINESS CALIBRATION: AI writes with consistent sentence lengths. You MUST vary sentence structure significantly. Mix short, punchy fragments with long, complex-compound sentences.
-      3. ELIMINATE "AI MARKERS": Remove transitions like "In conclusion," "Moreover," "Furthermore," or "It is important to note." Avoid "hedging" language unless it's a specific stylistic choice for the profession.
-      4. VOICE INJECTION: Adopt the specific persona of a ${profession}.
-      5. ADVERSARIAL BYPASS: Focus on breaking the "smoothness" and "perfection" that AI detectors (like GPTZero) flag. Introduce subtle human imperfections like rhetorical questions, personal perspective (where appropriate), and varying degrees of formality.
-
-      OUTPUT FORMAT:
-      You must respond in a strict JSON format matching the schema provided.
+      Output strictly as JSON matching the schema.
     `;
 
     try {
+      // Use pro for the actual humanization to ensure high quality on large texts
       const response = await this.ai.models.generateContent({
         model: "gemini-3-pro-preview",
-        contents: `Humanize the following text as a ${profession}:\n\n${text}`,
+        contents: `Execute deep humanization for this document as a ${profession}:\n\n${text}`,
         config: {
           systemInstruction: systemPrompt,
           responseMimeType: "application/json",
-          temperature: 0.9,
+          temperature: 0.85, // Slightly lower than 0.9 for better consistency in long texts
           responseSchema: {
             type: Type.OBJECT,
             properties: {
@@ -106,7 +112,7 @@ export class HumanizerService {
       return JSON.parse(jsonStr) as RewriteResponse;
     } catch (error) {
       console.error("Humanization Error:", error);
-      throw new Error("Failed to process text. Ensure your input is substantial and valid.");
+      throw new Error("The engine encountered an error processing your request. This usually happens with extremely complex structures. Please try again or slightly shorten the segment.");
     }
   }
 }
